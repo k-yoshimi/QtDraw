@@ -1,0 +1,51 @@
+name: diag-macos
+
+on:
+  push:
+    branches: [ci/macos-diagnose]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest pytest-qt
+          python -m playwright install --with-deps chromium
+      - name: System info
+        run: |
+          sw_vers; sysctl -n machdep.cpu.brand_string hw.ncpu hw.memsize
+          system_profiler SPDisplaysDataType || true
+          ls /Library/Fonts /System/Library/Fonts | wc -l
+      - name: Run steps with native sampling
+        env:
+          QT_QPA_PLATFORM: offscreen
+          PYVISTA_OFF_SCREEN: "true"
+        run: |
+          python -u others/diag/macos_steps.py 2>&1 &
+          PID=$!
+          for i in $(seq 1 30); do
+            sleep 60
+            kill -0 $PID 2>/dev/null || break
+            echo "===== native sample at ${i} min ====="
+            # the python process may be a child of the shell background job.
+            for p in $(pgrep -f macos_steps.py); do sample $p 5 -mayDie 2>/dev/null | sed -n '1,120p'; done
+            top -l 1 -o cpu -n 8 | tail -12
+          done
+          wait $PID
+      - name: Run again (second process)
+        env:
+          QT_QPA_PLATFORM: offscreen
+          PYVISTA_OFF_SCREEN: "true"
+        run: timeout 1500 python -u others/diag/macos_steps.py 2>&1
