@@ -322,6 +322,7 @@ class PyVistaWidget(QtInteractor):
         os.environ["PYVISTA_QT_BACKEND"] = "PySide6"
         # avoid recursion of the close() until the PyVistaWidget.__init__() is called, see pyvistaqt/plotting.py.
         self._closed = True
+        self._close_done = False  # closeEvent can be called again when the widget is deleted.
 
         # suppress std err.
         fd = sys.stderr.fileno()
@@ -2907,6 +2908,10 @@ class PyVistaWidget(QtInteractor):
 
         :meta private:
         """
+        if self._close_done:
+            return
+        self._close_done = True
+
         self._mathjax.close()
         self._tab_group_view.close()
 
@@ -2917,6 +2922,11 @@ class PyVistaWidget(QtInteractor):
             self._iosave["stderr"] = None
 
         super().close()
+
+        # delete closed windows, otherwise they remain and slow down new windows.
+        self._tab_group_view.deleteLater()
+        if self.parent() is None:  # standalone widget, otherwise deleted with its parent.
+            self.deleteLater()
 
     # ==================================================
     def remove_data(self, object_type, row_data, index):

@@ -78,6 +78,9 @@ def start_logging(level=logging.DEBUG, stream=None, text_widget=None, hook=True)
         text_widget (LogWidget, optional): text widget.
         hook (bool, optional): exception hook ?
 
+    Returns:
+        - (LogHandler) -- log handler added to the root logger.
+
     Note:
         - stream is True, sys.stderr is used.
     """
@@ -87,6 +90,8 @@ def start_logging(level=logging.DEBUG, stream=None, text_widget=None, hook=True)
     logging.getLogger().addHandler(log_handler)
     if hook:
         ExceptionHook()
+
+    return log_handler
 
 
 # ==================================================
@@ -114,7 +119,9 @@ class LogWidget(QWidget):
         self.log.setFont(font)
         self.log.setReadOnly(True)
         if level is not None:
-            start_logging(level, stream, self, hook)
+            handler = start_logging(level, stream, self, hook)
+            # stop logging to this widget when it is deleted.
+            self.destroyed.connect(lambda: logging.getLogger().removeHandler(handler))
 
         self.setWindowTitle(title)
         self.resize(640, 800)

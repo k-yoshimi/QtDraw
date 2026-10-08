@@ -1424,6 +1424,15 @@ class QtDraw(Window):
             self.pyvista_widget.close()
             super().closeEvent(event)
 
+            # delete closed windows, otherwise they remain and slow down new windows.
+            dialogs = [self.logger, self.info_dialog, self.multipie_dialog]
+            if self.debug:
+                dialogs += [self.actor_dialog, self.data_dialog, self.status_dialog, self.pref_data_dialog, self.camera_dialog]
+            for dialog in dialogs:
+                if dialog is not None:
+                    dialog.deleteLater()
+            self.deleteLater()
+
     # ==================================================
     def update_status(self, key, value):
         """
