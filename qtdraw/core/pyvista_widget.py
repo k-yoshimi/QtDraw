@@ -2912,8 +2912,12 @@ class PyVistaWidget(QtInteractor):
             return
         self._close_done = True
 
-        self._mathjax.close()
-        self._tab_group_view.close()
+        error = None
+        try:
+            self._mathjax.close()
+            self._tab_group_view.close()
+        except Exception as e:  # finish closing first.
+            error = e
 
         # restore std err.
         if self._iosave["stderr"] is not None:
@@ -2927,6 +2931,9 @@ class PyVistaWidget(QtInteractor):
         self._tab_group_view.deleteLater()
         if self.parent() is None:  # standalone widget, otherwise deleted with its parent.
             self.deleteLater()
+
+        if error is not None:
+            raise error
 
     # ==================================================
     def remove_data(self, object_type, row_data, index):

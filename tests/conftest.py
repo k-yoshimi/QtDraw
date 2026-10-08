@@ -3,8 +3,6 @@ Common fixtures for automated tests.
 """
 
 import os
-import sys
-import traceback
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -12,32 +10,17 @@ import pytest
 import shiboken6
 
 from qtdraw.widget.qt_event_util import get_qt_application
+from gui_helpers import process_deleted
 
 
 # ==================================================
 @pytest.fixture(autouse=True)
 def process_deleted_widgets():
     """
-    Delete widgets scheduled for deletion by a test.
-
-    Tests run without an event loop, so windows deleted on close (deleteLater) are
-    deleted here. Errors are reported instead of being shown in a (blocking) message box.
+    Delete widgets scheduled for deletion by a test (tests run without an event loop).
     """
-    from PySide6.QtCore import QCoreApplication, QEvent
-
     yield
-    if QCoreApplication.instance() is None:
-        return
-
-    errors = []
-    hook = sys.excepthook
-    sys.excepthook = lambda *exc: errors.append("".join(traceback.format_exception(*exc)))
-    try:
-        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
-    finally:
-        sys.excepthook = hook
-    if errors:
-        pytest.fail("error while deleting widgets:\n" + "\n".join(errors))
+    process_deleted()
 
 
 # ==================================================

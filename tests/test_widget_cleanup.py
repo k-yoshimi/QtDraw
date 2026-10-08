@@ -5,12 +5,20 @@ Remaining widgets made every new window slower, because QApplication.setStyle an
 setStyleSheet re-apply the style to all existing widgets.
 """
 
-from PySide6.QtCore import QCoreApplication, QEvent
+import os
+import subprocess
+import sys
+import textwrap
+
+import pytest
+import shiboken6
 from PySide6.QtWidgets import QApplication, QMessageBox
+
+from gui_helpers import process_deleted
 
 
 def n_widgets():
-    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    process_deleted()
     return len(QApplication.allWidgets())
 
 
@@ -80,3 +88,73 @@ def test_closed_window_stops_logging(qapp, tmp_path, monkeypatch):
 
     assert logging.getLogger().handlers == before
     logging.getLogger().warning("after close")  # no handler writes to a deleted widget.
+
+
+# ==================================================
+def test_closing_twice_deletes_once(qapp, tmp_path, monkeypatch):
+    from qtdraw.core.qtdraw_app import QtDraw
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.Ok)
+    before = n_widgets()
+
+    window = QtDraw()
+    window.close()
+    window.close()  # before the deferred deletion.
+    assert n_widgets() == before
+    assert not shiboken6.isValid(window)
+
+
+# ==================================================
+def test_widget_is_deleted_when_closing_fails(qapp, tmp_path, monkeypatch):
+    from qtdraw.core.pyvista_widget import PyVistaWidget
+
+    monkeypatch.chdir(tmp_path)
+    before = n_widgets()
+    w = PyVistaWidget(off_screen=True)
+
+    mathjax = w._mathjax
+
+    def fail():
+        raise OSError("cannot write cache")
+
+    monkeypatch.setattr(mathjax, "close", fail)
+    with pytest.raises(OSError, match="cannot write cache"):  # the error is not hidden.
+        w.close()
+    monkeypatch.setattr(mathjax, "close", type(mathjax).close.__get__(mathjax))
+    mathjax.close()
+
+    assert n_widgets() == before  # but the widget is still deleted.
+
+
+# ==================================================
+def test_last_window_closed_in_event_loop():
+    code = textwrap.dedent("""
+        import logging
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QApplication, QMessageBox
+        from qtdraw.widget.qt_event_util import get_qt_application
+        from qtdraw.core.qtdraw_app import QtDraw
+
+        app = get_qt_application()
+        QMessageBox.question = lambda *args, **kwargs: QMessageBox.Ok
+        window = QtDraw()
+        window.show()
+        destroyed = []
+        window.destroyed.connect(lambda: destroyed.append(True))
+        QTimer.singleShot(500, window.close)
+        QTimer.singleShot(30000, app.quit)  # safety net.
+        app.exec()
+        app.sendPostedEvents()
+        assert destroyed, "window is not deleted"
+        assert not logging.getLogger().handlers, logging.getLogger().handlers
+        print("OK")
+        """)
+    ret = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env={**os.environ, "QT_QPA_PLATFORM": "offscreen"},
+    )
+    assert ret.returncode == 0 and "OK" in ret.stdout, ret.stdout + ret.stderr
