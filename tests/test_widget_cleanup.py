@@ -30,11 +30,13 @@ def test_closed_qtdraw_is_deleted(qapp, tmp_path, monkeypatch):
     monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.Ok)
     before = n_widgets()
 
-    for _ in range(2):
+    for i in range(1, 3):
         window = QtDraw()
-        assert n_widgets() > before
+        assert n_widgets() > before + i
         window.close()
-        assert n_widgets() == before  # the window and its dialogs are deleted.
+        # the window and its dialogs are deleted; only the detached VTK widget remains.
+        assert n_widgets() == before + i
+        assert window.pyvista_widget.parent() is None
 
 
 # ==================================================
@@ -104,7 +106,7 @@ def test_closing_twice_deletes_once(qapp, tmp_path, monkeypatch):
     window = QtDraw()
     window.close()
     window.close()  # before the deferred deletion.
-    assert n_widgets() == before
+    assert n_widgets() == before + 1  # only the detached VTK widget.
     assert not shiboken6.isValid(window)
 
 

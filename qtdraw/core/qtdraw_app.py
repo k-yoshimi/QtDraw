@@ -1416,6 +1416,9 @@ class QtDraw(Window):
             for dialog in dialogs:
                 dialog.deleteLater()
             self.deleteLater()
+            # keep the VTK widget, as a closed standalone PyVistaWidget: deleting it together
+            # with the window corrupts memory with Mesa on Linux.
+            self.pyvista_widget.setParent(None)
 
             try:
                 for dialog in dialogs:
