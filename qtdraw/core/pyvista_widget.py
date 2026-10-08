@@ -2912,11 +2912,11 @@ class PyVistaWidget(QtInteractor):
             return
         self._close_done = True
 
-        # delete closed windows, otherwise they remain and slow down new windows.
+        # delete the data table, otherwise it remains and slows down new windows.
         # scheduled first, so that a failing step below cannot skip it.
+        # the widget itself is not deleted: deleting a standalone (off-screen) VTK widget
+        # crashes with Mesa on Linux. An embedded widget is deleted with its parent.
         self._tab_group_view.deleteLater()
-        if self.parent() is None:  # standalone widget, otherwise deleted with its parent.
-            self.deleteLater()
 
         # finish closing even if a step fails; the error is raised afterwards.
         try:

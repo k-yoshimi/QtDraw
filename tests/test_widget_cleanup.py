@@ -56,19 +56,22 @@ def test_cancelled_close_keeps_qtdraw(qapp, tmp_path, monkeypatch):
 
 
 # ==================================================
-def test_closed_standalone_widget_is_deleted(qapp, tmp_path, monkeypatch):
+def test_closed_standalone_widget_deletes_its_data_table(qapp, tmp_path, monkeypatch):
     from qtdraw.core.pyvista_widget import PyVistaWidget
 
     monkeypatch.chdir(tmp_path)
     before = n_widgets()
 
-    for _ in range(2):
+    for i in range(1, 3):
         w = PyVistaWidget(off_screen=True)
         w.add_site()
         w.open_tab_group_view()
-        assert n_widgets() > before
+        table = w._tab_group_view
+        assert n_widgets() > before + i
         w.close()
-        assert n_widgets() == before  # the widget and its data table are deleted.
+        # only the widget itself remains: deleting a standalone VTK widget crashes on Linux.
+        assert n_widgets() == before + i
+        assert not shiboken6.isValid(table)
 
 
 # ==================================================
@@ -127,7 +130,7 @@ def test_widget_is_deleted_when_closing_fails(qapp, tmp_path, monkeypatch):
     monkeypatch.setattr(mathjax, "close", type(mathjax).close.__get__(mathjax))
     mathjax.close()
 
-    assert n_widgets() == before  # but the widget is still deleted.
+    assert n_widgets() == before + 1  # but the data table is still deleted.
 
 
 # ==================================================
