@@ -1406,32 +1406,23 @@ class QtDraw(Window):
         if not ok:
             event.ignore()
         else:
-            if self.debug:
-                if self.actor_dialog is not None:
-                    self.actor_dialog.close()
-                if self.data_dialog is not None:
-                    self.data_dialog.close()
-                if self.status_dialog is not None:
-                    self.status_dialog.close()
-                if self.pref_data_dialog is not None:
-                    self.pref_data_dialog.close()
-                if self.camera_dialog is not None:
-                    self.camera_dialog.close()
-            if self.multipie_dialog is not None:
-                self.multipie_dialog.close()
-            self.logger.close()
-            self.info_dialog.close()
-            self.pyvista_widget.close()
-            super().closeEvent(event)
-
-            # delete closed windows, otherwise they remain and slow down new windows.
-            dialogs = [self.logger, self.info_dialog, self.multipie_dialog]
+            dialogs = [self.multipie_dialog, self.logger, self.info_dialog]
             if self.debug:
                 dialogs += [self.actor_dialog, self.data_dialog, self.status_dialog, self.pref_data_dialog, self.camera_dialog]
+            dialogs = [dialog for dialog in dialogs if dialog is not None]
+
+            # delete closed windows, otherwise they remain and slow down new windows.
+            # scheduled first, so that a failing step below cannot skip it.
             for dialog in dialogs:
-                if dialog is not None:
-                    dialog.deleteLater()
+                dialog.deleteLater()
             self.deleteLater()
+
+            try:
+                for dialog in dialogs:
+                    dialog.close()
+                self.pyvista_widget.close()
+            finally:
+                super().closeEvent(event)
 
     # ==================================================
     def update_status(self, key, value):

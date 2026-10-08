@@ -166,3 +166,47 @@ def test_last_window_closed_in_event_loop():
         env={**os.environ, "QT_QPA_PLATFORM": "offscreen"},
     )
     assert ret.returncode == 0 and "OK" in ret.stdout, ret.stdout + ret.stderr
+
+
+# ==================================================
+def test_failing_close_in_event_loop_is_reported():
+    code = textwrap.dedent("""
+        import sys
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QMessageBox
+        from qtdraw.widget.qt_event_util import get_qt_application
+        from qtdraw.core.qtdraw_app import QtDraw
+
+        app = get_qt_application()
+        QMessageBox.question = lambda *args, **kwargs: QMessageBox.Ok
+        window = QtDraw()
+        window.show()
+        mathjax = window.pyvista_widget._mathjax
+        real_close = mathjax.close
+
+        def fail():
+            real_close()
+            raise OSError("cannot write cache")
+
+        mathjax.close = fail
+        destroyed, errors, timeout = [], [], []
+        window.destroyed.connect(lambda: destroyed.append(True))
+        window.pyvista_widget._tab_group_view.destroyed.connect(lambda: destroyed.append(True))
+        sys.excepthook = lambda *exc: errors.append(exc[1])
+        QTimer.singleShot(500, window.close)
+        QTimer.singleShot(30000, lambda: (timeout.append(True), app.quit()))  # safety net.
+        app.exec()
+        app.sendPostedEvents()
+        assert len(errors) == 1 and "cannot write cache" in str(errors[0]), errors
+        assert not timeout, "closing the last window did not quit the application"
+        assert len(destroyed) == 2, "window or data table is not deleted"
+        print("OK")
+        """)
+    ret = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env={**os.environ, "QT_QPA_PLATFORM": "offscreen"},
+    )
+    assert ret.returncode == 0 and "OK" in ret.stdout, ret.stdout + ret.stderr

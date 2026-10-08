@@ -2912,6 +2912,12 @@ class PyVistaWidget(QtInteractor):
             return
         self._close_done = True
 
+        # delete closed windows, otherwise they remain and slow down new windows.
+        # scheduled first, so that a failing step below cannot skip it.
+        self._tab_group_view.deleteLater()
+        if self.parent() is None:  # standalone widget, otherwise deleted with its parent.
+            self.deleteLater()
+
         # finish closing even if a step fails; the error is raised afterwards.
         try:
             try:
@@ -2926,11 +2932,6 @@ class PyVistaWidget(QtInteractor):
                 self._iosave["stderr"] = None
 
             super().close()
-
-            # delete closed windows, otherwise they remain and slow down new windows.
-            self._tab_group_view.deleteLater()
-            if self.parent() is None:  # standalone widget, otherwise deleted with its parent.
-                self.deleteLater()
 
     # ==================================================
     def remove_data(self, object_type, row_data, index):
