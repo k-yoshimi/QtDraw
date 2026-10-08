@@ -119,8 +119,11 @@ def test_widget_is_deleted_when_closing_fails(qapp, tmp_path, monkeypatch):
         raise OSError("cannot write cache")
 
     monkeypatch.setattr(mathjax, "close", fail)
+    closed = []
+    monkeypatch.setattr(w._tab_group_view, "close", lambda: closed.append(True))
     with pytest.raises(OSError, match="cannot write cache"):  # the error is not hidden.
         w.close()
+    assert closed  # the data table is closed anyway.
     monkeypatch.setattr(mathjax, "close", type(mathjax).close.__get__(mathjax))
     mathjax.close()
 
@@ -131,6 +134,7 @@ def test_widget_is_deleted_when_closing_fails(qapp, tmp_path, monkeypatch):
 def test_last_window_closed_in_event_loop():
     code = textwrap.dedent("""
         import logging
+        import sys
         from PySide6.QtCore import QTimer
         from PySide6.QtWidgets import QApplication, QMessageBox
         from qtdraw.widget.qt_event_util import get_qt_application
@@ -142,10 +146,14 @@ def test_last_window_closed_in_event_loop():
         window.show()
         destroyed = []
         window.destroyed.connect(lambda: destroyed.append(True))
+        errors, timeout = [], []
+        sys.excepthook = lambda *exc: errors.append(exc)
         QTimer.singleShot(500, window.close)
-        QTimer.singleShot(30000, app.quit)  # safety net.
+        QTimer.singleShot(30000, lambda: (timeout.append(True), app.quit()))  # safety net.
         app.exec()
         app.sendPostedEvents()
+        assert not errors, errors
+        assert not timeout, "closing the last window did not quit the application"
         assert destroyed, "window is not deleted"
         assert not logging.getLogger().handlers, logging.getLogger().handlers
         print("OK")

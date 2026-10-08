@@ -2912,28 +2912,25 @@ class PyVistaWidget(QtInteractor):
             return
         self._close_done = True
 
-        error = None
+        # finish closing even if a step fails; the error is raised afterwards.
         try:
-            self._mathjax.close()
-            self._tab_group_view.close()
-        except Exception as e:  # finish closing first.
-            error = e
+            try:
+                self._mathjax.close()
+            finally:
+                self._tab_group_view.close()
+        finally:
+            # restore std err.
+            if self._iosave["stderr"] is not None:
+                os.dup2(self._iosave["stderr"], self._iosave["file_no"])
+                os.close(self._iosave["stderr"])
+                self._iosave["stderr"] = None
 
-        # restore std err.
-        if self._iosave["stderr"] is not None:
-            os.dup2(self._iosave["stderr"], self._iosave["file_no"])
-            os.close(self._iosave["stderr"])
-            self._iosave["stderr"] = None
+            super().close()
 
-        super().close()
-
-        # delete closed windows, otherwise they remain and slow down new windows.
-        self._tab_group_view.deleteLater()
-        if self.parent() is None:  # standalone widget, otherwise deleted with its parent.
-            self.deleteLater()
-
-        if error is not None:
-            raise error
+            # delete closed windows, otherwise they remain and slow down new windows.
+            self._tab_group_view.deleteLater()
+            if self.parent() is None:  # standalone widget, otherwise deleted with its parent.
+                self.deleteLater()
 
     # ==================================================
     def remove_data(self, object_type, row_data, index):
