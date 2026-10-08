@@ -111,6 +111,7 @@ class LogWidget(QWidget):
         Note:
             - if stream is True, sys.stderr is used.
             - if level is None, no logging.
+            - the log handler is removed from the root logger when the widget is deleted.
         """
         super().__init__(parent)
         self.log = QPlainTextEdit(self)
