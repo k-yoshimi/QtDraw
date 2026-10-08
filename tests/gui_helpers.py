@@ -3,6 +3,7 @@ Fixture and helpers for tests of the main window.
 """
 
 import pytest
+import shiboken6
 from PySide6.QtWidgets import QMessageBox
 
 
@@ -14,8 +15,9 @@ def app(qapp, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     window = QtDraw()
     yield window
-    monkeypatch.setattr(QMessageBox, "question", close_answer)
-    window.close()
+    if shiboken6.isValid(window):  # not yet closed (and deleted) by the test.
+        monkeypatch.setattr(QMessageBox, "question", close_answer)
+        window.close()
 
 
 def close_answer(parent, title, text, buttons, *args):
