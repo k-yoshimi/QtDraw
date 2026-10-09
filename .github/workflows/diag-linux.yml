@@ -14,7 +14,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        code: [branch, develop]
+        code: [develop]
+        python: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - name: Use develop code
@@ -24,7 +25,7 @@ jobs:
           git checkout FETCH_HEAD -- qtdraw
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python }}
           cache: pip
       - uses: pyvista/setup-headless-display-action@v4
         with:
@@ -81,6 +82,11 @@ jobs:
             set -e
             echo "===== $*: exit $code, GL errors $(grep -c 'color attachment' out.txt), $(grep -E 'passed|failed' out.txt | tail -1)"
           }
-          run "$T::test_a_qtdraw_draws_then_closes" "$T::test_b_standalone_with_table"
+          pip list 2>/dev/null | grep -iE "^(pyside6|pyvista|pyvistaqt|vtk|pytest) "
+          glxinfo -B 2>/dev/null | grep -iE "OpenGL (renderer|version)|Mesa" | head -3 || true
+          grep -n "addopts" pyproject.toml || echo "no addopts"
           run "$T::test_a_qtdraw_draws_then_closes" "$T::test_c_standalone_without_table"
-          run "$T::test_b_standalone_with_table"
+          run "$T::test_c_standalone_without_table"
+          run "$T::test_a_qtdraw_draws_then_closes" tests/test_cli.py
+          run -s "$T::test_a_qtdraw_draws_then_closes" "$T::test_c_standalone_without_table"
+          run -p no:capture "$T::test_a_qtdraw_draws_then_closes" "$T::test_c_standalone_without_table"
