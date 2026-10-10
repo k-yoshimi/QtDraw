@@ -401,3 +401,18 @@ def test_version1_drawing_with_multipie_is_rejected_without_it(widget, tmp_path,
     with pytest.raises(Exception, match="old.qtdw uses MultiPie"):
         widget.load(str(file))
     assert converted == []  # rejected before the conversion.
+
+
+@pytest.mark.parametrize("answer_button, replaced", [(QMessageBox.Cancel, False), (QMessageBox.Ok, True)])
+def test_save_as_asks_before_replacing_the_file_with_the_added_extension(app, tmp_path, monkeypatch, answer_button, replaced):
+    from PySide6.QtWidgets import QFileDialog
+
+    target = tmp_path / "existing.txt.qtdw"
+    target.write_text("old")
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **k: (str(tmp_path / "existing.txt"), ""))
+    asked = []
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: asked.append(a[2]) or answer_button)
+    app.pyvista_widget.add_site()
+    assert app.save_file_as() == replaced
+    assert len(asked) == 1 and "existing.txt.qtdw" in asked[0]
+    assert (target.read_text() != "old") == replaced
