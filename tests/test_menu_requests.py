@@ -345,3 +345,45 @@ def test_application_name_with_an_application_created_by_ipython(existing):
         assert name == "Other"  # an application that existed before keeps its name.
     else:
         assert (bundle, name) == ("QtDraw", "QtDraw")
+
+
+def test_qtdraw_starts_without_multipie():
+    import subprocess
+    import textwrap
+
+    code = textwrap.dedent("""
+        import sys
+        sys.modules["multipie"] = None  # MultiPie is not installed: importing it fails.
+        from PySide6.QtWidgets import QMessageBox
+        from qtdraw.core.qtdraw_app import QtDraw
+        from qtdraw.util.util import check_multipie
+        assert not check_multipie()
+        shown = []
+        QMessageBox.information = lambda *a, **k: shown.append(a[2]) or QMessageBox.Ok
+        QMessageBox.question = lambda *a, **k: QMessageBox.Discard
+        window = QtDraw()
+        window.pyvista_widget.add_site()
+        window.misc_button_multipie.click()
+        assert "pip install multipie" in shown[0], shown
+        window.close()
+        print("OK")
+        """)
+    env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
+    ret = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120, env=env)
+    assert ret.returncode == 0 and "OK" in ret.stdout, ret.stdout + ret.stderr[-2000:]
+
+
+def test_rejected_multipie_drawing_keeps_the_table_and_backup(widget, tmp_path, monkeypatch):
+    if not check_multipie():
+        pytest.skip("a drawing with a MultiPie group is written with MultiPie.")
+    widget.mp_set_group("Ci")
+    widget.save(str(tmp_path / "mp.qtdw"))
+    widget.add_site(name="kept")
+    widget.open_tab_group_view()
+    import qtdraw.core.pyvista_widget as pvw_module
+
+    monkeypatch.setattr(pvw_module, "check_multipie", lambda: False)
+    with pytest.raises(Exception, match="uses MultiPie"):
+        widget.load(str(tmp_path / "mp.qtdw"))
+    assert widget._tab_group_view.isVisible()  # nothing was changed before the drawing was rejected.
+    assert [row[0] for row in widget.get_data_dict()["site"]] == ["kept"]

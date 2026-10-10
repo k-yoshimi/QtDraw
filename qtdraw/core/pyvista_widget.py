@@ -81,7 +81,6 @@ from qtdraw.util.basic_object import (
     create_orbital_data,
     create_stream_data,
 )
-from qtdraw.multipie.multipie_data import MultiPieData
 
 
 # ==================================================
@@ -1985,6 +1984,8 @@ class PyVistaWidget(QtInteractor):
         missing = [key for key in required if not isinstance(all_data.get(key), dict)]
         if missing:
             raise Exception(f"cannot read {f}, missing {missing}.")
+        if all_data["status"].get("multipie") and not check_multipie():  # not opened: saving would lose its MultiPie data.
+            raise Exception(f"{file.name} uses MultiPie. {MULTIPIE_INSTALL}")
         if material is None:
             for object_type, rows in all_data["data"].items():
                 if object_type not in self._data.keys():
@@ -2047,8 +2048,6 @@ class PyVistaWidget(QtInteractor):
 
         multipie = all_data["status"].get("multipie", {})
         if multipie:
-            if not check_multipie():  # the drawing is not opened: saving it would lose its MultiPie data.
-                raise Exception(f"{file.name} uses MultiPie. {MULTIPIE_INSTALL}")
             self.mp_set_group(status=multipie)
 
         if material is None:
@@ -4964,6 +4963,7 @@ class PyVistaWidget(QtInteractor):
         """
         if not check_multipie():
             raise Exception(MULTIPIE_INSTALL)
+        from qtdraw.multipie.multipie_data import MultiPieData  # only with MultiPie: QtDraw also runs without it.
 
         self._mp_data = MultiPieData(self)
         self._mp_data.set_status(status, group)
