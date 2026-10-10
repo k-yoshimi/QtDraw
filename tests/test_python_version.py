@@ -18,7 +18,7 @@ def declared():
 def test_lowest_version_is_tested():
     workflow = (ROOT / ".github" / "workflows" / "test.yml").read_text()
     workflow = re.sub(r"#.*", "", workflow)  # not commented-out entries.
-    versions = re.findall(r"python-version: (\[.*\]|[\"'][\d.]+[\"'])", workflow)
+    versions = re.findall(r"python-version:[ \t]+(\[.*\]|[\"'][\d.]+[\"'])", workflow)
     tested = {v for line in versions for v in re.findall(r"[\"']([\d.]+)[\"']", line)}
     assert declared() in tested
 
