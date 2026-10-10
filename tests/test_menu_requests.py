@@ -3,6 +3,9 @@ Tests for the panel and menu changes: DataSet, the Window menu with the data vie
 and a resizable error dialog.
 """
 
+import os
+import sys
+
 import pytest
 import shiboken6
 from PySide6.QtWidgets import QMessageBox, QPushButton
@@ -214,3 +217,35 @@ def test_status_text_of_old_files(app):
         pvw._status["multipie"] = multipie
         text = app._status_text()
         assert "=== multipie ===" in text and "=== multipie.plus ===" in text
+
+
+# ==================================================
+def test_only_quit_preferences_and_about_move_to_the_application_menu(app):
+    from PySide6.QtGui import QAction
+
+    roles = {}
+    for menu_action in app.menuBar().actions():
+        for action in menu_action.menu().actions():
+            if action.text():
+                roles[action.text().replace("&", "")] = action.menuRole()
+    moved = {text: role for text, role in roles.items() if role != QAction.NoRole}
+    assert moved == {
+        "Quit": QAction.QuitRole,
+        "Preferences...": QAction.PreferencesRole,
+        "About QtDraw": QAction.AboutRole,
+    }, moved
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="the application menu is on macOS only.")
+def test_application_menu_is_named_qtdraw():
+    import subprocess
+    import textwrap
+
+    code = textwrap.dedent("""
+        from qtdraw.widget.qt_event_util import get_qt_application, macos_bundle_name
+        get_qt_application()
+        print("NAME", macos_bundle_name())
+        """)
+    env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
+    ret = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60, env=env)
+    assert "NAME QtDraw" in ret.stdout, ret.stdout + ret.stderr

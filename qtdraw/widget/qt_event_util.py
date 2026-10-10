@@ -36,6 +36,94 @@ def gui_qt():
 
 
 # ==================================================
+def _bundle_info():
+    """
+    Info dictionary of the main bundle and helpers to call Objective-C (macOS only).
+
+    Returns:
+        - (tuple) -- (info dictionary, NSString from str, str from NSString), None if not available.
+
+    :meta private:
+    """
+    import ctypes
+    import ctypes.util
+
+    objc = ctypes.cdll.LoadLibrary(ctypes.util.find_library("objc"))
+    ctypes.cdll.LoadLibrary(ctypes.util.find_library("Foundation"))
+    objc.objc_getClass.restype = ctypes.c_void_p
+    objc.objc_getClass.argtypes = [ctypes.c_char_p]
+    objc.sel_registerName.restype = ctypes.c_void_p
+    objc.sel_registerName.argtypes = [ctypes.c_char_p]
+    address = ctypes.cast(objc.objc_msgSend, ctypes.c_void_p).value
+
+    def send(restype, *argtypes):
+        return ctypes.CFUNCTYPE(restype, ctypes.c_void_p, ctypes.c_void_p, *argtypes)(address)
+
+    def sel(name):
+        return objc.sel_registerName(name.encode())
+
+    def ns_string(text):
+        cls = objc.objc_getClass(b"NSString")
+        return send(ctypes.c_void_p, ctypes.c_char_p)(cls, sel("stringWithUTF8String:"), text.encode())
+
+    def py_string(ns):
+        return send(ctypes.c_char_p)(ns, sel("UTF8String")).decode() if ns else None
+
+    bundle = send(ctypes.c_void_p)(objc.objc_getClass(b"NSBundle"), sel("mainBundle"))
+    info = send(ctypes.c_void_p)(bundle, sel("infoDictionary")) if bundle else None
+    if not info:
+        return None
+    return info, ns_string, py_string, send, sel
+
+
+# ==================================================
+def set_macos_app_name(name):
+    """
+    Name of the application menu on macOS (instead of "Python"), set before the application is created.
+
+    Args:
+        name (str): name.
+
+    Note:
+        - it does nothing on other platforms, or if it fails.
+    """
+    if sys.platform != "darwin":
+        return
+    try:
+        import ctypes
+
+        found = _bundle_info()
+        if found is None:
+            return
+        info, ns_string, _, send, sel = found
+        for key in ("CFBundleName", "CFBundleDisplayName"):
+            send(None, ctypes.c_void_p, ctypes.c_void_p)(info, sel("setObject:forKey:"), ns_string(name), ns_string(key))
+    except Exception as e:  # cosmetic only.
+        logging.debug(f"cannot set the application name: {e}")
+
+
+# ==================================================
+def macos_bundle_name():
+    """
+    Name of the application menu on macOS.
+
+    Returns:
+        - (str) -- name, None on other platforms.
+
+    :meta private:
+    """
+    if sys.platform != "darwin":
+        return None
+    import ctypes
+
+    found = _bundle_info()
+    if found is None:
+        return None
+    info, ns_string, py_string, send, sel = found
+    return py_string(send(ctypes.c_void_p, ctypes.c_void_p)(info, sel("objectForKey:"), ns_string("CFBundleName")))
+
+
+# ==================================================
 def get_qt_application():
     """
     Get Qt application.
@@ -49,7 +137,11 @@ def get_qt_application():
             - ExceptionHook()
     """
     gui_qt()
-    app = QApplication.instance() or QApplication(sys.argv)
+    app = QApplication.instance()
+    if app is None:
+        set_macos_app_name("QtDraw")  # read when the application is created.
+        app = QApplication(sys.argv)
+    app.setApplicationName("QtDraw")
 
     # for high-resolution setting.
     app.setAttribute(Qt.AA_EnableHighDpiScaling)

@@ -184,6 +184,7 @@ class QtDraw(Window):
 
         def action(menu, text, slot, shortcut=None):
             act = QAction(text, self)
+            act.setMenuRole(QAction.NoRole)  # on macOS, only roles set below move items to the application menu.
             if shortcut is not None:
                 act.setShortcut(shortcut)
             act.triggered.connect(slot)
@@ -237,6 +238,12 @@ class QtDraw(Window):
         menu.addSeparator()
         self.action_about = action(menu, "&About QtDraw", self._show_about)
         self.action_about.setMenuRole(QAction.AboutRole)
+
+        # submenus: not moved by their text either (e.g. "Preference" would replace Preferences on macOS).
+        for menu_action in self.menuBar().actions():
+            for item in menu_action.menu().actions():
+                if item.menu() is not None:
+                    item.setMenuRole(QAction.NoRole)
 
     # ==================================================
     def _create_view_menu(self, action):
@@ -343,14 +350,19 @@ class QtDraw(Window):
         files = [f for f in self._recent_files() if Path(f).is_file()]
         for f in files:
             act = menu.addAction(Path(f).name)
+            act.setMenuRole(QAction.NoRole)
             act.setToolTip(f)
             act.setStatusTip(f)
             act.triggered.connect(lambda _=False, f=f: self._open_recent(f))
         if files:
             menu.addSeparator()
-            menu.addAction("Clear Menu").triggered.connect(lambda: settings().remove("recent_files"))
+            clear = menu.addAction("Clear Menu")
+            clear.setMenuRole(QAction.NoRole)
+            clear.triggered.connect(lambda: settings().remove("recent_files"))
         else:
-            menu.addAction("No Recent Files").setEnabled(False)
+            empty = menu.addAction("No Recent Files")
+            empty.setMenuRole(QAction.NoRole)
+            empty.setEnabled(False)
 
     # ==================================================
     def _open_recent(self, filename):
