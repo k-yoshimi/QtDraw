@@ -41,6 +41,7 @@ def main():
         check(ret.returncode == 0 and "Usage:" in ret.stdout, f"command {script} runs")
 
     import numpy as np
+    from PySide6.QtCore import QEvent
     from qtdraw import PyVistaWidget, QtDraw, get_qt_application
     from qtdraw.parser.xsf import create_data
     from qtdraw.widget.mathjax import MathJaxSVG
@@ -57,7 +58,12 @@ def main():
         converter.close()
 
         errors = []  # exceptions in Qt slots (e.g. drawing) do not stop the script.
-        sys.excepthook = lambda kind, value, traceback: errors.append(repr(value))
+
+        def hook(kind, value, traceback):
+            errors.append(repr(value))
+            sys.__excepthook__(kind, value, traceback)
+
+        sys.excepthook = hook
 
         widget = PyVistaWidget(off_screen=True)
         for name in [
@@ -91,6 +97,9 @@ def main():
         # only the objects: the main window also sets the cell to the crystal of the group, and the camera to its size.
         check(contents(Path(directory) / "c.qtdw")["data"] == contents(first)["data"], "the main window reads a file")
         window.close()
+        app.sendPostedEvents(None, QEvent.DeferredDelete)  # widgets deleted later, as the event loop would.
+        app.processEvents()
+        check(not errors, f"the main window is closed without errors {errors}")
 
 
 def contents(file):
