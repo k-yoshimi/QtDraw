@@ -152,6 +152,8 @@ class MultiPieData:
 
         self._crystal, self._type, self._idx = group_list_index[group]
         self.status["group"]["tag"] = group
+        if self.pvw._status["crystal"] != self._crystal:  # the cell of the group, as the main window.
+            self.pvw.set_crystal(self._crystal)
 
         self._group = None
         self._p_group = None
