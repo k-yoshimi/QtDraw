@@ -248,6 +248,7 @@ def test_application_menu_is_named_qtdraw():
         """)
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
     ret = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60, env=env)
+    assert ret.returncode == 0, ret.stdout + ret.stderr
     assert "NAME QtDraw" in ret.stdout, ret.stdout + ret.stderr
 
 
@@ -296,3 +297,51 @@ def test_opening_a_multipie_drawing_asks_to_install(widget, tmp_path, monkeypatc
 def test_multipie_methods_ask_to_install(widget, no_multipie):
     with pytest.raises(Exception, match="pip install multipie"):
         widget.mp_set_group("Ci")
+
+
+def all_actions(menu):
+    for action in menu.actions():
+        yield action
+        if action.menu() is not None:
+            yield from all_actions(action.menu())
+
+
+def test_no_menu_role_in_submenus_and_recent_files(app, tmp_path):
+    from PySide6.QtGui import QAction
+
+    for name in ["Preferences.qtdw", "About.qtdw", "Quit.qtdw"]:
+        app.pyvista_widget.save(str(tmp_path / name))
+        app.load_file(str(tmp_path / name))
+    app.menu_recent.aboutToShow.emit()
+    special = {app.action_quit, app.action_preferences, app.action_about}
+    for menu_action in app.menuBar().actions():
+        for action in all_actions(menu_action.menu()):
+            if action not in special and not action.isSeparator():
+                assert action.menuRole() == QAction.NoRole, action.text()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="the application menu is on macOS only.")
+@pytest.mark.parametrize("existing", [False, True])
+def test_application_name_with_an_application_created_by_ipython(existing):
+    import subprocess
+    import textwrap
+
+    code = textwrap.dedent(f"""
+        import sys
+        from PySide6.QtWidgets import QApplication
+        import qtdraw.widget.qt_event_util as util
+        if {existing}:  # an application that existed before.
+            app = QApplication(sys.argv)
+            app.setApplicationName("Other")
+        util.gui_qt = lambda: QApplication.instance() or QApplication(sys.argv)  # as IPython's Qt integration.
+        app = util.get_qt_application()
+        print("NAME", util.macos_bundle_name(), app.applicationName())
+        """)
+    env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
+    ret = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60, env=env)
+    assert ret.returncode == 0, ret.stdout + ret.stderr
+    bundle, name = ret.stdout.split("NAME ")[1].split()[:2]
+    if existing:
+        assert name == "Other"  # an application that existed before keeps its name.
+    else:
+        assert (bundle, name) == ("QtDraw", "QtDraw")
