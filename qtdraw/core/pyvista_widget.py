@@ -49,7 +49,7 @@ from qtdraw.widget.color_palette import all_colors, custom_colormap, check_color
 from qtdraw.parser.read_material import parse_draw, draw
 from qtdraw.parser.xsf import extract_data_xsf
 from qtdraw.parser.converter import convert_version3
-from qtdraw.util.util import text_to_list, apply, read_dict, str_to_sympy, check_multipie
+from qtdraw.util.util import text_to_list, apply, read_dict, str_to_sympy, check_multipie, MULTIPIE_INSTALL
 from qtdraw.util.util_axis import (
     create_axes_widget,
     create_unit_cell,
@@ -2048,6 +2048,8 @@ class PyVistaWidget(QtInteractor):
 
         multipie = all_data["status"].get("multipie", {})
         if multipie:
+            if not check_multipie():  # the drawing is not opened: saving it would lose its MultiPie data.
+                raise Exception(f"{file.name} uses MultiPie. {MULTIPIE_INSTALL}")
             self.mp_set_group(status=multipie)
 
         if material is None:
@@ -4970,7 +4972,7 @@ class PyVistaWidget(QtInteractor):
             status (dict, optional): multipie status update dict.
         """
         if not check_multipie():
-            raise Exception("MultiPie is not installed.")
+            raise Exception(MULTIPIE_INSTALL)
 
         self._mp_data = MultiPieData(self)
         self._mp_data.set_status(status, group)
