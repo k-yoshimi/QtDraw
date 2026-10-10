@@ -45,6 +45,7 @@ def main():
     from qtdraw import PyVistaWidget, QtDraw, get_qt_application
     from qtdraw.parser.xsf import create_data
     from qtdraw.widget.mathjax import MathJaxSVG
+    from qtdraw.widget.qt_event_util import ExceptionHook
 
     app = get_qt_application()
 
@@ -64,6 +65,7 @@ def main():
             sys.__excepthook__(kind, value, traceback)
 
         sys.excepthook = hook
+        ExceptionHook.hook = lambda self, *exc: hook(*exc)  # the main window sets its hook (an error dialog).
 
         widget = PyVistaWidget(off_screen=True)
         for name in [
