@@ -537,7 +537,12 @@ class QtDraw(Window):
         filename, _ = QFileDialog.getSaveFileName(self, "Save File", str(file), ext_set, options=QFileDialog.Options())
         if not filename:  # cancelled.
             return False
-        filename = add_extension(Path(filename), ext)
+        chosen = Path(filename)
+        filename = add_extension(chosen, ext)
+        if filename != chosen and filename.exists():  # the dialog asked about the chosen name only.
+            text = f"{filename.name} already exists.\nReplace it?"
+            if QMessageBox.question(self, "Save File", text, QMessageBox.Ok | QMessageBox.Cancel) != QMessageBox.Ok:
+                return False
         self._save(str(filename))
         self._saved_to(filename)
         return True
