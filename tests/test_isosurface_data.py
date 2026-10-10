@@ -97,13 +97,22 @@ def test_parse_modulation_valid():
 
 
 # ==================================================
-@pytest.mark.parametrize("plain_origin", [True, False])
-def test_grid_data_with_numpy_values_is_read_again(widget, qtbot, tmp_path, plain_origin):
-    origin = [0, 0, 0] if plain_origin else np.zeros(3)
-    grid = create_data([5, 5, 5], origin, np.eye(4), True, lambda x, y, z: x + y + z, {"s": lambda x, y, z: x})
-    grid["data"] = np.asarray(grid["data"])  # numpy values given by a user.
-    grid["surface"]["s"] = np.asarray(grid["surface"]["s"], dtype=np.float32)
+def numpy_grid():
+    grid = create_data([5, 5, 5], [0, 0, 0], np.eye(4), True, lambda x, y, z: x + y + z, {"s": lambda x, y, z: x})
+    grid["origin"] = np.zeros(3)  # numpy values given by a user.
     grid["n"] = np.array(grid["n"])
+    grid["Ag"] = np.eye(4)
+    grid["data"] = np.asarray(grid["data"])
+    grid["data"][0] = np.nan  # e.g. outside the domain of a function.
+    grid["data"][1] = np.inf
+    grid["surface"]["s"] = np.asarray(grid["surface"]["s"], dtype=np.float32)
+    grid["endpoint"] = np.bool_(True)
+    return grid
+
+
+# ==================================================
+def test_grid_data_with_numpy_values_is_read_again(widget, qtbot, tmp_path):
+    grid = numpy_grid()
     widget.add_isosurface(data=("grid", grid), value=[1.5], surface="s")
 
     with qtbot.capture_exceptions() as exceptions:
@@ -112,6 +121,40 @@ def test_grid_data_with_numpy_values_is_read_again(widget, qtbot, tmp_path, plai
         widget.load(str(tmp_path / "a.qtdw"))
     assert not exceptions, repr(exceptions[0][1])
     assert rows(widget, "isosurface")[0][COLUMN_NAME_ACTOR] != ""
+    read = widget._isosurface_data["grid"]
+    np.testing.assert_array_equal(read["data"], grid["data"])  # also nan and inf.
+    np.testing.assert_allclose(read["surface"]["s"], grid["surface"]["s"])
+    assert read["origin"] == [0.0, 0.0, 0.0] and read["n"] == [5, 5, 5] and read["endpoint"] is True
+
+
+# ==================================================
+def test_grid_data_is_owned_by_widget(widget):
+    grid = numpy_grid()
+    widget.add_isosurface(data=("grid", grid), value=[1.5], surface="s")
+    grid["surface"]["s"][0] = 100.0  # changed by the caller later.
+    assert widget._isosurface_data["grid"]["surface"]["s"][0] == 0.0
+
+
+# ==================================================
+def test_to_plain():
+    from qtdraw.util.util import to_plain
+
+    nested = np.empty(1, dtype=object)
+    nested[0] = np.array([1.0])  # an array in an array.
+    value = {"a": np.float64(0.5), (1, 2): (np.int64(3), [np.array([1, 2])]), "o": nested}
+    plain = to_plain(value)
+    assert plain == {"a": 0.5, (1, 2): (3, [[1, 2]]), "o": [[1.0]]}
+    assert type(plain["a"]) is float and type(plain[(1, 2)][0]) is int and type(plain["o"][0]) is list
+
+
+# ==================================================
+def test_read_dict_reads_values_that_are_not_finite(tmp_path):
+    from qtdraw.util.util import read_dict
+
+    file = tmp_path / "a"
+    file.write_text(str({"data": [float("nan"), float("inf"), -float("inf"), 1.0]}))
+    data = read_dict(str(file))["data"]
+    assert np.isnan(data[0]) and data[1:] == [float("inf"), -float("inf"), 1.0]
 
 
 # ==================================================

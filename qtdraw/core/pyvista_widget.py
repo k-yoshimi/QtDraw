@@ -1828,8 +1828,8 @@ class PyVistaWidget(QtInteractor):
             if type(data) == tuple:
                 name, dic = data
                 row_data["data"] = name
-                # owned by QtDraw, so history can keep it, with Python values to be saved as text.
-                self._isosurface_data[name] = copy.deepcopy(to_plain(dic))
+                # a copy owned by QtDraw, so history can keep it, with Python values to be saved as text.
+                self._isosurface_data[name] = to_plain(dic)
                 self._isosurface_in_memory.add(name)
             else:
                 row_data["data"] = self.set_isosurface_data(data)
