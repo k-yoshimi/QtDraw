@@ -221,8 +221,10 @@ def read_dict(filename):
     c = ast.get_docstring(ast.parse(s))
     if c is not None:
         s = s.replace(c, "").replace('"""', "")
-    tree = _NotFinite().visit(ast.parse(s, mode="eval"))
-    d = ast.literal_eval(tree)
+    try:
+        d = ast.literal_eval(s)
+    except ValueError:  # e.g. nan or inf (slower, so only when needed).
+        d = ast.literal_eval(_NotFinite().visit(ast.parse(s, mode="eval")))
 
     return d
 

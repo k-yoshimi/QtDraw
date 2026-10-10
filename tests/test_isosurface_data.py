@@ -158,6 +158,27 @@ def test_read_dict_reads_values_that_are_not_finite(tmp_path):
 
 
 # ==================================================
+@pytest.mark.parametrize("text", ["{'a': np.inf}", "{'a': nan()}", "{'a': x}", "{'a': __import__('os')}"])
+def test_read_dict_reads_only_values(tmp_path, text):
+    from qtdraw.util.util import read_dict
+
+    file = tmp_path / "a"
+    file.write_text(text)
+    with pytest.raises(ValueError):
+        read_dict(str(file))
+
+
+# ==================================================
+def test_read_dict_keeps_strings(tmp_path):
+    from qtdraw.util.util import read_dict
+
+    file = tmp_path / "a"
+    file.write_text(str({"nan": "inf", "data": [float("nan")]}))
+    data = read_dict(str(file))
+    assert data["nan"] == "inf" and np.isnan(data["data"][0])
+
+
+# ==================================================
 def test_create_data_gives_plain_values():
     grid = create_data([3, 3, 3], np.zeros(3), np.eye(4), True, lambda x, y, z: x, None)
     assert type(grid["origin"]) is list and all(type(v) is float for v in grid["origin"])
