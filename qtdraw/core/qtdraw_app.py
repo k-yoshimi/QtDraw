@@ -22,7 +22,7 @@ from qtdraw.core.dialog_about import get_version_info
 from qtdraw.widget.custom_widget import Label, Layout, LineEdit, HBar, Button, Combo, VSpacer
 from qtdraw.widget.logging_util import LogWidget
 from qtdraw.widget.qt_event_util import busy_cursor, font_style_sheet
-from qtdraw.util.util import check_multipie
+from qtdraw.util.util import check_multipie, MULTIPIE_INSTALL
 
 
 # ==================================================
@@ -394,9 +394,8 @@ class QtDraw(Window):
             self.view_button_bar: "Show the color bar.",
             self.view_button_parallel: "Use parallel projection.",
             self.view_button_grid: "Show the grid.",
+            self.misc_button_multipie: "Open the MultiPie dialog for symmetry-adapted drawing (MultiPie must be installed).",
         }
-        if hasattr(self, "misc_button_multipie"):
-            tips[self.misc_button_multipie] = "Open the MultiPie dialog for symmetry-adapted drawing."
         for button, tip in tips.items():
             if not button.toolTip():  # keep tool tips set elsewhere.
                 button.setToolTip(tip)
@@ -842,14 +841,12 @@ class QtDraw(Window):
         layout = Layout(panel)
 
         self.ds_button_edit = Button(parent, text="edit")
-        if check_multipie():
-            self.misc_button_multipie = Button(parent, text="MultiPie")
+        self.misc_button_multipie = Button(parent, text="MultiPie")  # also without MultiPie: it tells how to install it.
 
         panel1 = QWidget(parent)
         layout1 = Layout(panel1)
         layout1.addWidget(self.ds_button_edit, 0, 0, 1, 1)
-        if check_multipie():
-            layout1.addWidget(self.misc_button_multipie, 0, 1, 1, 1)
+        layout1.addWidget(self.misc_button_multipie, 0, 1, 1, 1)
 
         layout.addWidget(panel1, 0, 0, 1, 1)
 
@@ -1580,8 +1577,7 @@ class QtDraw(Window):
 
         # button panel.
         self.ds_button_edit.released.connect(self.pyvista_widget.open_tab_group_view)
-        if check_multipie():
-            self.misc_button_multipie.released.connect(self._show_multipie)
+        self.misc_button_multipie.released.connect(self._show_multipie)
 
         # pyvista.
         self.pyvista_widget.message.connect(self.write_info)
@@ -1664,18 +1660,20 @@ class QtDraw(Window):
     # ==================================================
     def _show_multipie(self):
         """
-        Show MultiPie panel.
+        Show MultiPie panel, or how to install MultiPie.
 
         :meta private:
         """
-        if check_multipie():
-            from qtdraw.multipie.multipie_dialog import MultiPieDialog
+        if not check_multipie():
+            QMessageBox.information(self, "MultiPie", f"{MULTIPIE_INSTALL}\n\nMultiPie draws objects by symmetry.")
+            return
+        from qtdraw.multipie.multipie_dialog import MultiPieDialog
 
-            if self.multipie_dialog is None:
-                self.multipie_dialog = MultiPieDialog(self)
-                self.multipie_dialog.addActions([self.action_undo, self.action_redo])  # shortcuts in the dialog.
-            else:
-                self.multipie_dialog.show()
+        if self.multipie_dialog is None:
+            self.multipie_dialog = MultiPieDialog(self)
+            self.multipie_dialog.addActions([self.action_undo, self.action_redo])  # shortcuts in the dialog.
+        else:
+            self.multipie_dialog.show()
 
     # ==================================================
     def _show_data_view(self, name, title, contents):
@@ -3256,7 +3254,7 @@ class QtDraw(Window):
     # ==================================================
     def _check_multipie(self):
         if not check_multipie():
-            raise Exception("MultiPie is not installed.")
+            raise Exception(MULTIPIE_INSTALL)
         if self.multipie_dialog is None:
             QMessageBox.question(self, "", "Call 'mp_set_group(tag)' at first.", QMessageBox.Ok)
             return True

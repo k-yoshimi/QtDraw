@@ -249,3 +249,50 @@ def test_application_menu_is_named_qtdraw():
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
     ret = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60, env=env)
     assert "NAME QtDraw" in ret.stdout, ret.stdout + ret.stderr
+
+
+# ==================================================
+@pytest.fixture
+def no_multipie(monkeypatch):
+    import qtdraw.core.pyvista_widget as pvw_module
+    import qtdraw.core.qtdraw_app as app_module
+
+    for module in (pvw_module, app_module):
+        monkeypatch.setattr(module, "check_multipie", lambda: False)
+
+
+def test_multipie_button_is_always_shown(qapp, tmp_path, monkeypatch, no_multipie):
+    from qtdraw.core.qtdraw_app import QtDraw
+
+    monkeypatch.chdir(tmp_path)
+    window = QtDraw()
+    try:
+        assert "MultiPie" in [b.text() for b in window.panel.findChildren(QPushButton)]
+        shown = []
+        monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: shown.append(a[2]) or QMessageBox.Ok)
+        window.misc_button_multipie.click()
+        assert len(shown) == 1 and "pip install multipie" in shown[0]
+        assert window.multipie_dialog is None
+    finally:
+        monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.Discard)
+        if shiboken6.isValid(window):
+            window.close()
+
+
+def test_opening_a_multipie_drawing_asks_to_install(widget, tmp_path, monkeypatch):
+    if not check_multipie():
+        pytest.skip("a drawing with a MultiPie group is written with MultiPie.")
+    widget.mp_set_group("Ci")
+    widget.save(str(tmp_path / "mp.qtdw"))
+    widget.mp_set_group("C2h")  # the current drawing, kept when opening fails.
+    import qtdraw.core.pyvista_widget as pvw_module
+
+    monkeypatch.setattr(pvw_module, "check_multipie", lambda: False)
+    with pytest.raises(Exception, match="mp.qtdw uses MultiPie.*pip install multipie"):
+        widget.load(str(tmp_path / "mp.qtdw"))
+    assert "C2h" in str(widget._mp_data.status)
+
+
+def test_multipie_methods_ask_to_install(widget, no_multipie):
+    with pytest.raises(Exception, match="pip install multipie"):
+        widget.mp_set_group("Ci")
