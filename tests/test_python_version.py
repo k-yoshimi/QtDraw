@@ -17,6 +17,7 @@ def declared():
 # ==================================================
 def test_lowest_version_is_tested():
     workflow = (ROOT / ".github" / "workflows" / "test.yml").read_text()
+    workflow = re.sub(r"#.*", "", workflow)  # not commented-out entries.
     versions = re.findall(r"python-version: (\[.*\]|\"[\d.]+\")", workflow)
     tested = {v for line in versions for v in re.findall(r"\"([\d.]+)\"", line)}
     assert declared() in tested
@@ -31,7 +32,10 @@ def test_classifiers_start_at_lowest_version():
 
 # ==================================================
 def test_documents_tell_lowest_version():
+    lowest = int(declared().split(".")[1])
     for file in ["docs/README.md", "docs/src/install.md"]:
         text = (ROOT / file).read_text()
-        mentioned = set(re.findall(r"Python (?:>= ?|≥ ?)?(3\.\d+)", text))
-        assert mentioned == {declared()}, file
+        required = set(re.findall(r"Python (?:>= ?|≥ ?)?(3\.\d+)", text))
+        assert required == {declared()}, file
+        others = re.findall(r"python@?3\.(\d+)", text, flags=re.IGNORECASE)  # e.g. "brew install python@3.13".
+        assert all(int(v) >= lowest for v in others), file
