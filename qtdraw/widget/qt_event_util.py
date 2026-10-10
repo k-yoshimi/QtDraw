@@ -96,8 +96,11 @@ def set_macos_app_name(name):
         if found is None:
             return
         info, ns_string, _, send, sel = found
+        setter = sel("setObject:forKey:")
+        if not send(ctypes.c_bool, ctypes.c_void_p)(info, sel("respondsToSelector:"), setter):
+            return  # a dictionary that cannot be changed: an Objective-C exception would end the process.
         for key in ("CFBundleName", "CFBundleDisplayName"):
-            send(None, ctypes.c_void_p, ctypes.c_void_p)(info, sel("setObject:forKey:"), ns_string(name), ns_string(key))
+            send(None, ctypes.c_void_p, ctypes.c_void_p)(info, setter, ns_string(name), ns_string(key))
     except Exception as e:  # cosmetic only.
         logging.debug(f"cannot set the application name: {e}")
 
@@ -138,10 +141,10 @@ def get_qt_application():
     """
     gui_qt()
     app = QApplication.instance()
-    if app is None:
+    if app is None:  # an existing application (e.g. in Jupyter) keeps its name.
         set_macos_app_name("QtDraw")  # read when the application is created.
         app = QApplication(sys.argv)
-    app.setApplicationName("QtDraw")
+        app.setApplicationName("QtDraw")
 
     # for high-resolution setting.
     app.setAttribute(Qt.AA_EnableHighDpiScaling)
