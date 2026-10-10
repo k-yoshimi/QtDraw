@@ -380,10 +380,24 @@ def test_rejected_multipie_drawing_keeps_the_table_and_backup(widget, tmp_path, 
     widget.save(str(tmp_path / "mp.qtdw"))
     widget.add_site(name="kept")
     widget.open_tab_group_view()
+    backup = repr(getattr(widget, "_backup", None))
     import qtdraw.core.pyvista_widget as pvw_module
 
     monkeypatch.setattr(pvw_module, "check_multipie", lambda: False)
     with pytest.raises(Exception, match="uses MultiPie"):
         widget.load(str(tmp_path / "mp.qtdw"))
     assert widget._tab_group_view.isVisible()  # nothing was changed before the drawing was rejected.
+    assert repr(getattr(widget, "_backup", None)) == backup
     assert [row[0] for row in widget.get_data_dict()["site"]] == ["kept"]
+
+
+def test_version1_drawing_with_multipie_is_rejected_without_it(widget, tmp_path, monkeypatch, no_multipie):
+    import qtdraw.core.pyvista_widget as pvw_module
+
+    converted = []
+    monkeypatch.setattr(pvw_module, "convert_version3", lambda *a: converted.append(1))
+    file = tmp_path / "old.qtdw"
+    file.write_text("{'version': '1.0.0', 'multipie': {'group': {'group': 'C1'}}}")  # MultiPie data at the top level.
+    with pytest.raises(Exception, match="old.qtdw uses MultiPie"):
+        widget.load(str(file))
+    assert converted == []  # rejected before the conversion.
