@@ -85,7 +85,7 @@ def set_macos_app_name(name):
         name (str): name.
 
     Note:
-        - it does nothing on other platforms, or if it fails.
+        - best effort: it does nothing on other platforms, and Python errors are only logged.
     """
     if sys.platform != "darwin":
         return
@@ -139,11 +139,12 @@ def get_qt_application():
             - self.app = get_qt_application()
             - ExceptionHook()
     """
+    new = QApplication.instance() is None  # an application that already exists keeps its name.
+    if new:
+        set_macos_app_name("QtDraw")  # read when the application is created, also by IPython's Qt integration.
     gui_qt()
-    app = QApplication.instance()
-    if app is None:  # an existing application (e.g. in Jupyter) keeps its name.
-        set_macos_app_name("QtDraw")  # read when the application is created.
-        app = QApplication(sys.argv)
+    app = QApplication.instance() or QApplication(sys.argv)
+    if new:
         app.setApplicationName("QtDraw")
 
     # for high-resolution setting.
