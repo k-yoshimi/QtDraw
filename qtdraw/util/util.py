@@ -214,6 +214,28 @@ def read_dict(filename):
 
 
 # ==================================================
+def to_plain(obj):
+    """
+    Convert numpy values in nested dict, list and tuple to Python values, which can be written as text and read again.
+
+    Args:
+        obj (any): object.
+
+    Returns:
+        - (any) -- object with Python values (new dict, list and tuple).
+    """
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, np.generic):
+        return obj.item()
+    if isinstance(obj, dict):
+        return {to_plain(k): to_plain(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return type(obj)(to_plain(v) for v in obj)
+    return obj
+
+
+# ==================================================
 def write_dict(filename, dic, header=None, var=None):
     """
     write dict text file.

@@ -94,3 +94,27 @@ def test_parse_modulation_valid():
     rows_, magnetic = MultiPieData._parse_modulation("[[Q1,1,[1,0,0],cos],[Q2,2,[0,1,0],sin]]")
     assert rows_ == [["Q1", "1", "[1,0,0]", "cos"], ["Q2", "2", "[0,1,0]", "sin"]]
     assert magnetic is False
+
+
+# ==================================================
+@pytest.mark.parametrize("plain_origin", [True, False])
+def test_grid_data_with_numpy_values_is_read_again(widget, qtbot, tmp_path, plain_origin):
+    origin = [0, 0, 0] if plain_origin else np.zeros(3)
+    grid = create_data([5, 5, 5], origin, np.eye(4), True, lambda x, y, z: x + y + z, {"s": lambda x, y, z: x})
+    grid["data"] = np.asarray(grid["data"])  # numpy values given by a user.
+    grid["surface"]["s"] = np.asarray(grid["surface"]["s"], dtype=np.float32)
+    grid["n"] = np.array(grid["n"])
+    widget.add_isosurface(data=("grid", grid), value=[1.5], surface="s")
+
+    with qtbot.capture_exceptions() as exceptions:
+        widget.save(str(tmp_path / "a.qtdw"))
+        widget.clear_data()
+        widget.load(str(tmp_path / "a.qtdw"))
+    assert not exceptions, repr(exceptions[0][1])
+    assert rows(widget, "isosurface")[0][COLUMN_NAME_ACTOR] != ""
+
+
+# ==================================================
+def test_create_data_gives_plain_values():
+    grid = create_data([3, 3, 3], np.zeros(3), np.eye(4), True, lambda x, y, z: x, None)
+    assert type(grid["origin"]) is list and all(type(v) is float for v in grid["origin"])
