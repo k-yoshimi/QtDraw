@@ -222,10 +222,11 @@ def test_status_text_of_old_files(app):
 # ==================================================
 def test_only_quit_preferences_and_about_move_to_the_application_menu(app):
     from PySide6.QtGui import QAction
+    from PySide6.QtWidgets import QMenu
 
     roles = {}
-    for menu_action in app.menuBar().actions():
-        for action in menu_action.menu().actions():
+    for menu in app.findChildren(QMenu):  # not QAction.menu(): with PySide6 6.9 it deletes the menu.
+        for action in menu.actions():
             if action.text():
                 roles[action.text().replace("&", "")] = action.menuRole()
     moved = {text: role for text, role in roles.items() if role != QAction.NoRole}
@@ -234,6 +235,7 @@ def test_only_quit_preferences_and_about_move_to_the_application_menu(app):
         "Preferences...": QAction.PreferencesRole,
         "About QtDraw": QAction.AboutRole,
     }, moved
+    assert shiboken6.isValid(app.menu_recent)
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="the application menu is on macOS only.")
@@ -299,13 +301,6 @@ def test_multipie_methods_ask_to_install(widget, no_multipie):
         widget.mp_set_group("Ci")
 
 
-def all_actions(menu):
-    for action in menu.actions():
-        yield action
-        if action.menu() is not None:
-            yield from all_actions(action.menu())
-
-
 def test_no_menu_role_in_submenus_and_recent_files(app, tmp_path):
     from PySide6.QtGui import QAction
 
@@ -313,9 +308,11 @@ def test_no_menu_role_in_submenus_and_recent_files(app, tmp_path):
         app.pyvista_widget.save(str(tmp_path / name))
         app.load_file(str(tmp_path / name))
     app.menu_recent.aboutToShow.emit()
+    from PySide6.QtWidgets import QMenu
+
     special = {app.action_quit, app.action_preferences, app.action_about}
-    for menu_action in app.menuBar().actions():
-        for action in all_actions(menu_action.menu()):
+    for menu in app.findChildren(QMenu):  # also the submenus and the recent files.
+        for action in menu.actions():
             if action not in special and not action.isSeparator():
                 assert action.menuRole() == QAction.NoRole, action.text()
 
