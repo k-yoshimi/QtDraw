@@ -1966,6 +1966,8 @@ class PyVistaWidget(QtInteractor):
                 raise
             except Exception as e:  # the parser's message is kept as the cause.
                 raise ValueError(f"{file.name} is not a valid QtDraw file, it cannot be read.") from e
+            if isinstance(all_data, dict) and all_data.get("multipie") and not check_multipie():  # version 1.
+                raise Exception(f"{file.name} uses MultiPie. {MULTIPIE_INSTALL}")
             if ver < 2:  # a temporary widget is needed to convert version 1.
                 widget = PyVistaWidget(off_screen=True)
                 try:
