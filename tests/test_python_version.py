@@ -18,8 +18,8 @@ def declared():
 def test_lowest_version_is_tested():
     workflow = (ROOT / ".github" / "workflows" / "test.yml").read_text()
     workflow = re.sub(r"#.*", "", workflow)  # not commented-out entries.
-    versions = re.findall(r"python-version: (\[.*\]|\"[\d.]+\")", workflow)
-    tested = {v for line in versions for v in re.findall(r"\"([\d.]+)\"", line)}
+    versions = re.findall(r"python-version: (\[.*\]|[\"'][\d.]+[\"'])", workflow)
+    tested = {v for line in versions for v in re.findall(r"[\"']([\d.]+)[\"']", line)}
     assert declared() in tested
 
 
@@ -35,7 +35,10 @@ def test_documents_tell_lowest_version():
     lowest = int(declared().split(".")[1])
     for file in ["docs/README.md", "docs/src/install.md"]:
         text = (ROOT / file).read_text()
-        required = set(re.findall(r"Python (?:>= ?|≥ ?)?(3\.\d+)", text))
-        assert required == {declared()}, file
-        others = re.findall(r"python@?3\.(\d+)", text, flags=re.IGNORECASE)  # e.g. "brew install python@3.13".
-        assert all(int(v) >= lowest for v in others), file
+        # the lowest version: "Python >= 3.x", "Python ≥ 3.x" or "Python 3.x or later".
+        minimum = r"python\s*(?:>=|≥)\s*3\.(\d+)|python\s*3\.(\d+)\s+or\s+later"
+        stated = {int(a or b) for a, b in re.findall(minimum, text, flags=re.IGNORECASE)}
+        assert stated == {lowest}, file
+        # other versions, e.g. "brew install python@3.13", are not lower.
+        mentioned = re.findall(r"python\s*[@>=≥]*\s*3\.(\d+)", text, flags=re.IGNORECASE)
+        assert all(int(v) >= lowest for v in mentioned), file
