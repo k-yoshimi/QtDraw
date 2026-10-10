@@ -19,8 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        # Python 3.11 is not tested: MultiPie 2.3.4 uses f-string syntax that needs Python 3.12
-        # (fixed in MultiPie's develop branch, not released yet).
+        # the lowest Python version in pyproject.toml (3.11 is not supported: MultiPie 2.x uses f-string syntax that needs 3.12).
         python-version: ["3.12", "3.13"]
         dependencies: [latest]
         include:
