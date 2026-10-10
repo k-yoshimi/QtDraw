@@ -194,6 +194,7 @@ class QtDraw(Window):
         menu = self.menuBar().addMenu("&File")
         self.action_open = action(menu, "&Open...", self.open_file, QKeySequence.Open)
         self.menu_recent = menu.addMenu("Open &Recent")
+        self.menu_recent.menuAction().setMenuRole(QAction.NoRole)  # submenus are not moved by their text either.
         self.menu_recent.aboutToShow.connect(self._update_recent_menu)
         self.action_save = action(menu, "&Save", self.save_file, QKeySequence.Save)
         self.action_save_as = action(menu, "Save &As...", self.save_file_as, QKeySequence.SaveAs)
@@ -239,11 +240,8 @@ class QtDraw(Window):
         self.action_about = action(menu, "&About QtDraw", self._show_about)
         self.action_about.setMenuRole(QAction.AboutRole)
 
-        # submenus: not moved by their text either (e.g. "Preference" would replace Preferences on macOS).
-        for menu_action in self.menuBar().actions():
-            for item in menu_action.menu().actions():
-                if item.menu() is not None:
-                    item.setMenuRole(QAction.NoRole)
+        for menu_action in self.menuBar().actions():  # the menus themselves are not moved by their text either.
+            menu_action.setMenuRole(QAction.NoRole)
 
     # ==================================================
     def _create_view_menu(self, action):
@@ -294,6 +292,7 @@ class QtDraw(Window):
 
         def choice(title, combo):
             sub = menu.addMenu(title)
+            sub.menuAction().setMenuRole(QAction.NoRole)
             group = QActionGroup(self)
             actions = {}
             for i in range(combo.count()):
