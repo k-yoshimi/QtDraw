@@ -56,3 +56,14 @@ def test_group_of_the_same_crystal_keeps_cell(widget, monkeypatch):
     monkeypatch.setattr(widget, "set_unit_cell", lambda *args, **kwargs: calls.append(args))
     widget.mp_set_group("C6v")  # also hexagonal: the cell is not set (nor drawn) again.
     assert calls == [] and widget._status["cell"]["a"] == 2.0 and widget._status["cell"]["c"] == 3.0
+
+
+# ==================================================
+def test_main_window_sets_cell_once(app, monkeypatch):
+    widget = app.pyvista_widget
+    calls = []
+    original = widget.set_unit_cell
+    monkeypatch.setattr(widget, "set_unit_cell", lambda *args, **kwargs: calls.append(args) or original(*args, **kwargs))
+    app.mp_set_group("D6h")
+    assert len(calls) == 1 and cell(widget) == ("hexagonal", 120.0)
+    assert app.uc_combo_crystal.currentText() == "hexagonal"  # the panel shows it.
