@@ -7,7 +7,7 @@ This module provides message box dialog.
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QGridLayout, QMessageBox, QPlainTextEdit, QSizePolicy, QTextEdit
 from PySide6.QtGui import QFontDatabase
 import shiboken6
-from PySide6.QtCore import QEvent, Qt
+from PySide6.QtCore import QEvent, Qt, QTimer
 
 
 # ==================================================
@@ -82,9 +82,12 @@ class ResizableMessageBox(QMessageBox):
 
         :meta private:
         """
+        fixed, size = self.maximumSize() == self.minimumSize(), self.size()
         self.setSizeGripEnabled(True)
         self.setMinimumSize(self.layout().totalMinimumSize())  # the buttons and the message stay visible.
         self.setMaximumSize(self.MAX_SIZE, self.MAX_SIZE)
+        if fixed and self.isVisible():  # macOS then fills the screen with the box (later): keep the size.
+            QTimer.singleShot(0, lambda: shiboken6.isValid(self) and self.resize(size))
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         details = self.findChild(QTextEdit)
         if details is not None:
