@@ -89,7 +89,7 @@ def kill_group(proc):
     """
     try:
         os.killpg(proc.pid, signal.SIGKILL)
-    except ProcessLookupError:  # the group has already ended.
+    except (ProcessLookupError, PermissionError):  # the group has already ended (macOS: only the unwaited leader left).
         pass
     proc.wait(timeout=60)
 
