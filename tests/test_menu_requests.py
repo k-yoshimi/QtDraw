@@ -5,6 +5,7 @@ and a resizable error dialog.
 
 import os
 import sys
+from pathlib import Path
 
 import pytest
 import shiboken6
@@ -413,3 +414,25 @@ def test_save_as_asks_before_replacing_the_file_with_the_added_extension(app, tm
     assert app.save_file_as() == replaced
     assert len(asked) == 1 and "existing.txt.qtdw" in asked[0]
     assert (target.read_text() != "old") == replaced
+
+
+# ==================================================
+@pytest.mark.parametrize("name", ["Si.cif", "Si.vesta", "Si.xsf"])
+def test_material_file_opens_without_multipie(widget, monkeypatch, name):
+    import qtdraw.parser.util_parser as parser_module
+    import qtdraw.core.pyvista_widget as pvw_module
+
+    for module in (parser_module, pvw_module):
+        monkeypatch.setattr(module, "check_multipie", lambda: False, raising=False)
+    widget.load(str(Path(__file__).resolve().parents[1] / "docs" / "src" / "examples" / name))
+    assert widget._status["crystal"] == "cubic"
+    assert widget._data["site"].rowCount() > 0
+    assert not widget._status.get("multipie") and widget._mp_data is None  # nothing of MultiPie to lose by saving.
+
+
+# ==================================================
+def test_material_file_sets_its_space_group_with_multipie(widget):
+    if not check_multipie():
+        pytest.skip("MultiPie is not installed.")
+    widget.load(str(Path(__file__).resolve().parents[1] / "docs" / "src" / "examples" / "Si.cif"))
+    assert widget._mp_data.status["group"]["tag"] == "SG:227"
