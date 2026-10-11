@@ -4,10 +4,8 @@ MessageBox dialog.
 This module provides message box dialog.
 """
 
-import sys
-
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QGridLayout, QMessageBox, QPlainTextEdit, QSizePolicy, QTextEdit
-from PySide6.QtGui import QFontDatabase
+from PySide6.QtGui import QFontDatabase, QGuiApplication
 import shiboken6
 from PySide6.QtCore import QEvent, Qt, QTimer
 
@@ -101,7 +99,7 @@ class ResizableMessageBox(QMessageBox):
         self.setSizeGripEnabled(True)
         self.setMinimumSize(self.layout().totalMinimumSize())  # the buttons and the message stay visible.
         self.setMaximumSize(self.MAX_SIZE, self.MAX_SIZE)
-        if fixed and self.isVisible() and sys.platform == "darwin":  # macOS then fills the screen with the box (later).
+        if fixed and self.isVisible() and QGuiApplication.platformName() == "cocoa":  # macOS then fills the screen (later).
             QTimer.singleShot(0, lambda: self._unfill_screen(size))
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         details = self.findChild(QTextEdit)
