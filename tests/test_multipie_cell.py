@@ -46,3 +46,13 @@ def test_opened_file_keeps_its_cell(widget, app, tmp_path, monkeypatch):
     app.load_file(str(tmp_path / "a.qtdw"))
     assert app.pyvista_widget._status["crystal"] == "trigonal"
     assert app.pyvista_widget._status["cell"] == saved
+
+
+# ==================================================
+def test_group_of_the_same_crystal_keeps_cell(widget, monkeypatch):
+    widget.mp_set_group("D6h")
+    widget.set_unit_cell({"a": 2.0, "c": 3.0})
+    calls = []
+    monkeypatch.setattr(widget, "set_unit_cell", lambda *args, **kwargs: calls.append(args))
+    widget.mp_set_group("C6v")  # also hexagonal: the cell is not set (nor drawn) again.
+    assert calls == [] and widget._status["cell"]["a"] == 2.0 and widget._status["cell"]["c"] == 3.0

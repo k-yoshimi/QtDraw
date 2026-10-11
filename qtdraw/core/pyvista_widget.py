@@ -4965,6 +4965,9 @@ class PyVistaWidget(QtInteractor):
 
         self._mp_data = MultiPieData(self)
         self._mp_data.set_status(status, group)
+        crystal = self._mp_data._crystal
+        if self._status["crystal"] != crystal:  # the cell of the group, as the main window.
+            self.set_crystal(crystal)
         self.document_changed.emit()
 
     # ==================================================
